@@ -58,14 +58,45 @@ public:
         return m2 == hBI;
     }
 
+    // Utility functions made public
+    static BigInt modInverse(const BigInt &a, const BigInt &m) {
+        // Extended Euclidean Algorithm for unsigned BigInt
+        BigInt old_r = a, r = m;
+        BigInt old_s(1), s(0);
+        
+        while (!r.isZero()) {
+            BigInt quotient = old_r / r;
+            BigInt temp = r;
+            r = old_r - quotient * r;
+            old_r = temp;
+            
+            temp = s;
+            if (quotient * s <= old_s) {
+                s = old_s - quotient * s;
+            } else {
+                // Handle potential negative case by finding equivalent positive value
+                BigInt diff = quotient * s - old_s;
+                BigInt cycles = (diff + m - BigInt(1)) / m;
+                s = old_s + cycles * m - quotient * s;
+            }
+            old_s = temp;
+        }
+        
+        if (old_r != BigInt(1)) {
+            return BigInt(0); // No modular inverse exists
+        }
+        
+        return old_s % m;
+    }
+
 private:
     static bool isPrime(const BigInt &n, int iterations = 5) {
         if (n == BigInt(2) || n == BigInt(3)) return true;
         if (n.isZero()) return false;
-        if (n.limbs.size() == 1 && (n.limbs[0] & 1) == 0) return false;
+        if (n.isEven()) return false;
         BigInt d = n - BigInt(1);
         int r = 0;
-        while ((d.limbs[0] & 1) == 0) {
+        while (d.isEven()) {
             d = d >> 1;
             ++r;
         }
@@ -105,15 +136,6 @@ private:
         x = y1;
         y = x1 - (a / b) * y1;
         return d;
-    }
-
-    static BigInt modInverse(const BigInt &a, const BigInt &m) {
-        BigInt x, y;
-        BigInt g = extendedGCD(a, m, x, y);
-        if (g != BigInt(1)) return BigInt(0);
-        BigInt res = x % m;
-        if (res < BigInt(0)) res = res + m;
-        return res;
     }
 
     static BigInt randomPrime(size_t bitLength) {

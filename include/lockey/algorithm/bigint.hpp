@@ -30,12 +30,13 @@ public:
     }
 
     BigInt(const std::vector<uint8_t> &bytes) {
-        BigInt result(0);
-        BigInt base(256);
+        limbs.clear();
+        if (bytes.empty()) return;
+        
+        // Convert bytes to BigInt (big-endian)
         for (uint8_t b : bytes) {
-            result = (result * base) + BigInt(static_cast<uint64_t>(b));
+            *this = (*this << 8) + BigInt(static_cast<uint64_t>(b));
         }
-        limbs = result.limbs;
     }
 
     bool isZero() const {
@@ -92,7 +93,9 @@ public:
         if (limbs.empty()) return 0;
         uint32_t top = limbs.back();
         int bits = 32 * (static_cast<int>(limbs.size()) - 1);
-        bits += 32 - __builtin_clz(top);
+        if (top != 0) {
+            bits += 32 - __builtin_clz(top);
+        }
         return bits;
     }
 
@@ -118,6 +121,33 @@ public:
 
     bool operator!=(const BigInt &other) const {
         return compare(*this, other) != 0;
+    }
+
+    // Add method to check if number is even
+    bool isEven() const {
+        return limbs.empty() || (limbs[0] & 1) == 0;
+    }
+
+    // Add method to get lowest limb
+    uint32_t getLowLimb() const {
+        return limbs.empty() ? 0 : limbs[0];
+    }
+
+    // Convert BigInt to bytes (big-endian)
+    std::vector<uint8_t> toBytes() const {
+        if (isZero()) return {0};
+        
+        std::vector<uint8_t> result;
+        BigInt temp = *this;
+        BigInt base(256);
+        
+        while (!temp.isZero()) {
+            auto dm = BigInt::divMod(temp, base);
+            result.insert(result.begin(), static_cast<uint8_t>(dm.second.getLowLimb()));
+            temp = dm.first;
+        }
+        
+        return result;
     }
 
     BigInt operator+(const BigInt &other) const {
