@@ -1,6 +1,6 @@
 #pragma once
 #include "interfaces.hpp"
-#include "../algorithm/bigint.hpp"
+#include "../algorithm/cypher.hpp"
 #include "../algorithm/blake2s.hpp"
 #include <random>
 #include <stdexcept>
