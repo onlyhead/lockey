@@ -2,7 +2,6 @@
 
 #include "algorithm/blake2s.hpp"
 #include "algorithm/cypher.hpp"
-#include "algorithm/rsa_legacy.hpp"
 #include "crypto/crypto_manager.hpp"
 #include "crypto/interfaces.hpp"
 #include <string>
@@ -21,11 +20,6 @@ public:
                                           size_t keySize = 2048) {
         static crypto::CryptoManager manager;
         return manager.generateKeyPair(algorithm, keySize);
-    }
-    
-    // Legacy RSA-specific key generation for backward compatibility
-    static RSAKeyPair generateRSAKeyPair(size_t keySize = 2048) {
-        return RSA::generateKey(keySize);
     }
     
     // Universal signing
@@ -117,95 +111,6 @@ public:
     static std::vector<uint8_t> hexToBytes(const std::string& hex) {
         static crypto::CryptoManager manager;
         return manager.hexToBytes(hex);
-    }
-    
-    // Legacy functions for backward compatibility
-    static std::string encrypt(const std::string& plaintext, const Cypher& e, const Cypher& n) {
-        std::vector<uint8_t> data(plaintext.begin(), plaintext.end());
-        return encryptBytesLegacy(data, e, n);
-    }
-    
-    static std::string decrypt(const std::string& ciphertext, const Cypher& d, const Cypher& n) {
-        std::vector<uint8_t> decryptedBytes = decryptToBytesLegacy(ciphertext, d, n);
-        return std::string(decryptedBytes.begin(), decryptedBytes.end());
-    }
-    
-    static std::string sign(const std::string& message, const Cypher& d, const Cypher& n) {
-        std::vector<uint8_t> msgBytes(message.begin(), message.end());
-        Cypher signature = RSA::sign(msgBytes, d, n);
-        return cypherToHex(signature);
-    }
-    
-    static bool verify(const std::string& message, const std::string& hexSignature, const Cypher& e, const Cypher& n) {
-        std::vector<uint8_t> msgBytes(message.begin(), message.end());
-        Cypher signature(hexToBytes(hexSignature));
-        return RSA::verify(msgBytes, signature, e, n);
-    }
-    
-    // Key serialization helpers
-    static std::string keyToString(const RSAKeyPair& keyPair) {
-        return "n=" + cypherToHex(keyPair.n) + ",e=" + cypherToHex(keyPair.e) + ",d=" + cypherToHex(keyPair.d);
-    }
-    
-    static RSAKeyPair keyFromString(const std::string& keyStr) {
-        RSAKeyPair result;
-        
-        size_t nPos = keyStr.find("n=");
-        size_t ePos = keyStr.find(",e=");
-        size_t dPos = keyStr.find(",d=");
-        
-        if (nPos != std::string::npos && ePos != std::string::npos && dPos != std::string::npos) {
-            std::string nHex = keyStr.substr(nPos + 2, ePos - nPos - 2);
-            std::string eHex = keyStr.substr(ePos + 3, dPos - ePos - 3);
-            std::string dHex = keyStr.substr(dPos + 3);
-            
-            result.n = Cypher(hexToBytes(nHex));
-            result.e = Cypher(hexToBytes(eHex));
-            result.d = Cypher(hexToBytes(dHex));
-        }
-        
-        return result;
-    }
-
-private:
-    // Legacy helper functions
-    static std::string encryptBytesLegacy(const std::vector<uint8_t>& data, const Cypher& e, const Cypher& n) {
-        if (data.empty()) return "";
-        
-        Cypher message(data);
-        
-        if (message >= n) {
-            throw std::runtime_error("Message too large for key size");
-        }
-        
-        Cypher encrypted = RSA::encrypt(message, e, n);
-        return cypherToHex(encrypted);
-    }
-    
-    static std::vector<uint8_t> decryptToBytesLegacy(const std::string& hexCiphertext, const Cypher& d, const Cypher& n) {
-        if (hexCiphertext.empty()) return {};
-        
-        Cypher encrypted(hexToBytes(hexCiphertext));
-        Cypher decrypted = RSA::decrypt(encrypted, d, n);
-        
-        return decrypted.toBytes();
-    }
-    
-    static std::string cypherToHex(const Cypher& num) {
-        if (num.isZero()) return "0";
-        
-        std::string result;
-        Cypher temp = num;
-        Cypher sixteen(16);
-        
-        while (!temp.isZero()) {
-            auto dm = Cypher::divMod(temp, sixteen);
-            uint32_t digit = dm.second.isZero() ? 0 : dm.second.getLowLimb();
-            result = "0123456789abcdef"[digit] + result;
-            temp = dm.first;
-        }
-        
-        return result;
     }
 };
 

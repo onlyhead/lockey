@@ -84,6 +84,8 @@ if(LOCKEY_BUILD_EXAMPLES)
   set(exe
     examples/main.cpp
     examples/debug.cpp
+    examples/universal_api_demo.cpp
+    examples/quick_test.cpp
   )
   # ----------------------------------------------
   set(exec_names)
