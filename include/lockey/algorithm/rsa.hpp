@@ -1,5 +1,5 @@
 #pragma once
-#include "bigint.hpp"
+#include "cypher.hpp"
 #include "blake2s.hpp"
 #include <random>
 #include <vector>

@@ -1,10 +1,13 @@
 #pragma once
 #include "interfaces.hpp"
 #include "asymmetric/rsa_crypto.hpp"
+#include "asymmetric/ecdsa_crypto.hpp"
+#include "symmetric/aes_crypto.hpp"
 #include "hash/blake2s_hasher.hpp"
 #include "hash/sha256_hasher.hpp"
 #include "hash/sha1_hasher.hpp"
 #include "hash/md5_hasher.hpp"
+#include "../algorithm/elliptic_curve.hpp"
 #include <unordered_map>
 #include <memory>
 #include <stdexcept>
@@ -16,10 +19,11 @@ class CryptoManager {
 public:
     enum class Algorithm {
         RSA,
+        ECDSA_P256,     // ECDSA with secp256r1 (NIST P-256)
+        ECDSA_P384,     // ECDSA with secp384r1 (NIST P-384)
+        AES,            // AES symmetric encryption
         // Future algorithms can be added here
-        // ECDSA,
         // ED25519,
-        // AES,
         // etc.
     };
     
@@ -187,6 +191,20 @@ private:
         keyGenerators[Algorithm::RSA] = std::make_unique<RSAKeyGenerator>();
         signers[Algorithm::RSA] = std::make_unique<RSADigitalSigner>();
         encryptors[Algorithm::RSA] = std::make_unique<RSAEncryptor>();
+        
+        // Register ECDSA algorithms
+        auto secp256r1 = Secp256r1::instance();
+        auto secp384r1 = Secp384r1::instance();
+        
+        keyGenerators[Algorithm::ECDSA_P256] = std::make_unique<ECDSAKeyGenerator>(secp256r1);
+        signers[Algorithm::ECDSA_P256] = std::make_unique<ECDSADigitalSigner>(secp256r1);
+        
+        keyGenerators[Algorithm::ECDSA_P384] = std::make_unique<ECDSAKeyGenerator>(secp384r1);
+        signers[Algorithm::ECDSA_P384] = std::make_unique<ECDSADigitalSigner>(secp384r1);
+        
+        // Register AES symmetric encryption
+        keyGenerators[Algorithm::AES] = std::make_unique<AESKeyGenerator>();
+        encryptors[Algorithm::AES] = std::make_unique<AESEncryptor>();
         
         // Register hash algorithms
         hashers[HashAlgorithm::BLAKE2S] = std::make_unique<Blake2sHasher>();

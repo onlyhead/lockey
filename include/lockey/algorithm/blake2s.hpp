@@ -91,4 +91,12 @@ inline void blake2s(uint8_t *out, const uint8_t *in, size_t inlen) {
     }
 }
 
-}
+// Class wrapper for BLAKE2S for template compatibility
+class BLAKE2S {
+public:
+    static void hash(uint8_t* output, const uint8_t* input, size_t inputLen) {
+        blake2s(output, input, inputLen);
+    }
+};
+
+} // namespace lockey

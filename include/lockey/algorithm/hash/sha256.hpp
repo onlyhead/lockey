@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <vector>
 
 namespace lockey {
 
@@ -134,6 +135,13 @@ public:
             output[i * 4 + 2] = static_cast<uint8_t>(H[i] >> 8);
             output[i * 4 + 3] = static_cast<uint8_t>(H[i]);
         }
+    }
+    
+    // Convenience function that returns a vector
+    static std::vector<uint8_t> hash(const std::vector<uint8_t>& input) {
+        std::vector<uint8_t> output(32); // SHA-256 produces 32 bytes
+        hash(output.data(), input.data(), input.size());
+        return output;
     }
 };
 
