@@ -8,9 +8,9 @@
 
 namespace lockey {
 
-class BigInt {
+class Cypher {
 public:
-    BigInt(uint64_t v = 0) {
+    Cypher(uint64_t v = 0) {
         limbs.clear();
         if (v == 0) return;
         limbs.push_back(static_cast<uint32_t>(v & 0xFFFFFFFFu));
@@ -18,24 +18,24 @@ public:
         if (hi) limbs.push_back(hi);
     }
 
-    BigInt(const std::string &s) {
+    Cypher(const std::string &s) {
         limbs.clear();
-        BigInt ten(10);
-        BigInt result(0);
+        Cypher ten(10);
+        Cypher result(0);
         for (char c : s) {
             if (c < '0' || c > '9') continue;
-            result = result * ten + BigInt(static_cast<uint64_t>(c - '0'));
+            result = result * ten + Cypher(static_cast<uint64_t>(c - '0'));
         }
         limbs = result.limbs;
     }
 
-    BigInt(const std::vector<uint8_t> &bytes) {
+    Cypher(const std::vector<uint8_t> &bytes) {
         limbs.clear();
         if (bytes.empty()) return;
         
-        // Convert bytes to BigInt (big-endian)
+        // Convert bytes to Cypher (big-endian)
         for (uint8_t b : bytes) {
-            *this = (*this << 8) + BigInt(static_cast<uint64_t>(b));
+            *this = (*this << 8) + Cypher(static_cast<uint64_t>(b));
         }
     }
 
@@ -45,8 +45,8 @@ public:
 
     std::string toString() const {
         if (isZero()) return "0";
-        BigInt tmp = *this;
-        BigInt ten(10);
+        Cypher tmp = *this;
+        Cypher ten(10);
         std::string s;
         while (!tmp.isZero()) {
             auto dm = divMod(tmp, ten);
@@ -58,12 +58,12 @@ public:
         return s;
     }
 
-    static BigInt randomBits(size_t bitCount) {
+    static Cypher randomBits(size_t bitCount) {
         size_t limbCount = (bitCount + 31) / 32;
         std::random_device rd;
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<uint32_t> dist(0, std::numeric_limits<uint32_t>::max());
-        BigInt r;
+        Cypher r;
         r.limbs.resize(limbCount);
         for (size_t i = 0; i < limbCount; ++i) {
             r.limbs[i] = dist(gen);
@@ -78,11 +78,11 @@ public:
         return r;
     }
 
-    static BigInt randomRange(const BigInt &min, const BigInt &max) {
+    static Cypher randomRange(const Cypher &min, const Cypher &max) {
         if (min >= max) return min;
-        BigInt range = max - min;
+        Cypher range = max - min;
         size_t bits = range.bitLength();
-        BigInt result;
+        Cypher result;
         do {
             result = randomBits(bits);
         } while (result > range);
@@ -99,27 +99,27 @@ public:
         return bits;
     }
 
-    bool operator<(const BigInt &other) const {
+    bool operator<(const Cypher &other) const {
         return compare(*this, other) < 0;
     }
 
-    bool operator>(const BigInt &other) const {
+    bool operator>(const Cypher &other) const {
         return compare(*this, other) > 0;
     }
 
-    bool operator<=(const BigInt &other) const {
+    bool operator<=(const Cypher &other) const {
         return compare(*this, other) <= 0;
     }
 
-    bool operator>=(const BigInt &other) const {
+    bool operator>=(const Cypher &other) const {
         return compare(*this, other) >= 0;
     }
 
-    bool operator==(const BigInt &other) const {
+    bool operator==(const Cypher &other) const {
         return compare(*this, other) == 0;
     }
 
-    bool operator!=(const BigInt &other) const {
+    bool operator!=(const Cypher &other) const {
         return compare(*this, other) != 0;
     }
 
@@ -133,16 +133,16 @@ public:
         return limbs.empty() ? 0 : limbs[0];
     }
 
-    // Convert BigInt to bytes (big-endian)
+    // Convert Cypher to bytes (big-endian)
     std::vector<uint8_t> toBytes() const {
         if (isZero()) return {0};
         
         std::vector<uint8_t> result;
-        BigInt temp = *this;
-        BigInt base(256);
+        Cypher temp = *this;
+        Cypher base(256);
         
         while (!temp.isZero()) {
-            auto dm = BigInt::divMod(temp, base);
+            auto dm = Cypher::divMod(temp, base);
             result.insert(result.begin(), static_cast<uint8_t>(dm.second.getLowLimb()));
             temp = dm.first;
         }
@@ -150,9 +150,9 @@ public:
         return result;
     }
 
-    BigInt operator+(const BigInt &other) const {
-        BigInt a = *this;
-        BigInt b = other;
+    Cypher operator+(const Cypher &other) const {
+        Cypher a = *this;
+        Cypher b = other;
         size_t n = std::max(a.limbs.size(), b.limbs.size());
         a.limbs.resize(n);
         b.limbs.resize(n);
@@ -167,9 +167,9 @@ public:
         return a;
     }
 
-    BigInt operator-(const BigInt &other) const {
-        BigInt a = *this;
-        BigInt b = other;
+    Cypher operator-(const Cypher &other) const {
+        Cypher a = *this;
+        Cypher b = other;
         a.limbs.resize(std::max(a.limbs.size(), b.limbs.size()));
         b.limbs.resize(a.limbs.size());
         int64_t carry = 0;
@@ -187,9 +187,9 @@ public:
         return a;
     }
 
-    BigInt operator*(const BigInt &other) const {
-        if (isZero() || other.isZero()) return BigInt(0);
-        BigInt r;
+    Cypher operator*(const Cypher &other) const {
+        if (isZero() || other.isZero()) return Cypher(0);
+        Cypher r;
         size_t n = limbs.size();
         size_t m = other.limbs.size();
         r.limbs.assign(n + m, 0);
@@ -206,19 +206,19 @@ public:
         return r;
     }
 
-    BigInt operator/(const BigInt &other) const {
+    Cypher operator/(const Cypher &other) const {
         return divMod(*this, other).first;
     }
 
-    BigInt operator%(const BigInt &other) const {
+    Cypher operator%(const Cypher &other) const {
         return divMod(*this, other).second;
     }
 
-    BigInt operator<<(int bits) const {
-        if (isZero()) return BigInt(0);
+    Cypher operator<<(int bits) const {
+        if (isZero()) return Cypher(0);
         int limbShift = bits / 32;
         int rem = bits % 32;
-        BigInt r;
+        Cypher r;
         r.limbs.assign(limbShift, 0);
         uint64_t carry = 0;
         for (size_t i = 0; i < limbs.size(); ++i) {
@@ -231,11 +231,11 @@ public:
         return r;
     }
 
-    BigInt operator>>(int bits) const {
+    Cypher operator>>(int bits) const {
         int limbShift = bits / 32;
         int rem = bits % 32;
-        if (static_cast<int>(limbs.size()) <= limbShift) return BigInt(0);
-        BigInt r;
+        if (static_cast<int>(limbs.size()) <= limbShift) return Cypher(0);
+        Cypher r;
         r.limbs.resize(limbs.size() - limbShift);
         uint64_t carry = 0;
         for (int i = static_cast<int>(limbs.size()) - 1; i >= limbShift; --i) {
@@ -247,10 +247,10 @@ public:
         return r;
     }
 
-    BigInt modExp(const BigInt &exp, const BigInt &mod) const {
-        BigInt base = *this % mod;
-        BigInt e = exp;
-        BigInt result(1);
+    Cypher modExp(const Cypher &exp, const Cypher &mod) const {
+        Cypher base = *this % mod;
+        Cypher e = exp;
+        Cypher result(1);
         while (!e.isZero()) {
             if (e.limbs[0] & 1) result = (result * base) % mod;
             base = (base * base) % mod;
@@ -259,17 +259,17 @@ public:
         return result;
     }
 
-    static std::pair<BigInt, BigInt> divMod(const BigInt &a, const BigInt &b) {
-        if (b.isZero()) return {BigInt(0), BigInt(0)};
-        if (compare(a, b) < 0) return {BigInt(0), a};
+    static std::pair<Cypher, Cypher> divMod(const Cypher &a, const Cypher &b) {
+        if (b.isZero()) return {Cypher(0), Cypher(0)};
+        if (compare(a, b) < 0) return {Cypher(0), a};
         int shift = a.bitLength() - b.bitLength();
-        BigInt bShift = b << shift;
-        BigInt remainder = a;
-        BigInt quotient(0);
+        Cypher bShift = b << shift;
+        Cypher remainder = a;
+        Cypher quotient(0);
         for (int i = shift; i >= 0; --i) {
             if (remainder >= bShift) {
                 remainder = remainder - bShift;
-                quotient = quotient + (BigInt(1) << i);
+                quotient = quotient + (Cypher(1) << i);
             }
             bShift = bShift >> 1;
         }
@@ -278,7 +278,7 @@ public:
         return {quotient, remainder};
     }
 
-    static int compare(const BigInt &a, const BigInt &b) {
+    static int compare(const Cypher &a, const Cypher &b) {
         if (a.limbs.size() != b.limbs.size())
             return a.limbs.size() < b.limbs.size() ? -1 : 1;
         for (int i = static_cast<int>(a.limbs.size()) - 1; i >= 0; --i) {
@@ -291,8 +291,9 @@ public:
 private:
     std::vector<uint32_t> limbs;
 
-    static void trim(BigInt &a) {
+    static void trim(Cypher &a) {
         while (!a.limbs.empty() && a.limbs.back() == 0) a.limbs.pop_back();
     }
 };
+
 }

@@ -4,7 +4,6 @@
 #include "algorithm/cypher.hpp"
 #include "algorithm/rsa_legacy.hpp"
 #include "crypto/crypto_manager.hpp"
-#include "crypto/interfaces.hpp"
 #include <string>
 #include <vector>
 #include <array>
@@ -140,31 +139,6 @@ public:
         std::vector<uint8_t> msgBytes(message.begin(), message.end());
         Cypher signature(hexToBytes(hexSignature));
         return RSA::verify(msgBytes, signature, e, n);
-    }
-    
-    // Key serialization helpers
-    static std::string keyToString(const RSAKeyPair& keyPair) {
-        return "n=" + cypherToHex(keyPair.n) + ",e=" + cypherToHex(keyPair.e) + ",d=" + cypherToHex(keyPair.d);
-    }
-    
-    static RSAKeyPair keyFromString(const std::string& keyStr) {
-        RSAKeyPair result;
-        
-        size_t nPos = keyStr.find("n=");
-        size_t ePos = keyStr.find(",e=");
-        size_t dPos = keyStr.find(",d=");
-        
-        if (nPos != std::string::npos && ePos != std::string::npos && dPos != std::string::npos) {
-            std::string nHex = keyStr.substr(nPos + 2, ePos - nPos - 2);
-            std::string eHex = keyStr.substr(ePos + 3, dPos - ePos - 3);
-            std::string dHex = keyStr.substr(dPos + 3);
-            
-            result.n = Cypher(hexToBytes(nHex));
-            result.e = Cypher(hexToBytes(eHex));
-            result.d = Cypher(hexToBytes(dHex));
-        }
-        
-        return result;
     }
 
 private:
