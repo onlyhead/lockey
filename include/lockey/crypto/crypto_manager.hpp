@@ -1,7 +1,10 @@
 #pragma once
 #include "interfaces.hpp"
-#include "rsa_crypto.hpp"
-#include "blake2s_hasher.hpp"
+#include "asymmetric/rsa_crypto.hpp"
+#include "hash/blake2s_hasher.hpp"
+#include "hash/sha256_hasher.hpp"
+#include "hash/sha1_hasher.hpp"
+#include "hash/md5_hasher.hpp"
 #include <unordered_map>
 #include <memory>
 #include <stdexcept>
@@ -22,8 +25,12 @@ public:
     
     enum class HashAlgorithm {
         BLAKE2S,
+        SHA256,
+        SHA1,
+        MD5,
         // Future hash algorithms can be added here
-        // SHA256,
+        // SHA384,
+        // SHA512,
         // SHA3,
         // etc.
     };
@@ -183,6 +190,9 @@ private:
         
         // Register hash algorithms
         hashers[HashAlgorithm::BLAKE2S] = std::make_unique<Blake2sHasher>();
+        hashers[HashAlgorithm::SHA256] = std::make_unique<SHA256Hasher>();
+        hashers[HashAlgorithm::SHA1] = std::make_unique<SHA1Hasher>();
+        hashers[HashAlgorithm::MD5] = std::make_unique<MD5Hasher>();
         
         // Future algorithms can be registered here
     }
