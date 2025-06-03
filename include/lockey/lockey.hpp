@@ -19,7 +19,7 @@
 #include "utils/common.hpp"
 
 // Include implementation files
-#include "crypto/crypto_impl_simple.hpp"
+#include "crypto/crypto_impl.hpp"
 #include "hash/hash_impl.hpp"
 #include "ec/ec_impl.hpp"
 #include "rsa/rsa_impl_simple.hpp"

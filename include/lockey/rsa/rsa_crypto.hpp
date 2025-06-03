@@ -64,6 +64,10 @@ class BigInteger {
 private:
     std::vector<uint32_t> digits_;
     bool negative_;
+    
+    void normalize();
+    int compare_abs(const BigInteger& other) const;
+    BigInteger div_mod(const BigInteger& divisor, BigInteger& quotient) const;
 
 public:
     BigInteger();
@@ -76,34 +80,30 @@ public:
     BigInteger operator*(const BigInteger& other) const;
     BigInteger operator/(const BigInteger& other) const;
     BigInteger operator%(const BigInteger& other) const;
+    BigInteger operator>>(uint32_t shift) const;
+    BigInteger operator-() const;
     
     // Comparison operations
-    bool operator==(const BigInteger& other) const;
-    bool operator!=(const BigInteger& other) const;
+    bool operator==(const BigInteger& other) const { return compare_abs(other) == 0 && negative_ == other.negative_; }
+    bool operator!=(const BigInteger& other) const { return !(*this == other); }
     bool operator<(const BigInteger& other) const;
-    bool operator<=(const BigInteger& other) const;
-    bool operator>(const BigInteger& other) const;
-    bool operator>=(const BigInteger& other) const;
+    bool operator<=(const BigInteger& other) const { return (*this < other) || (*this == other); }
+    bool operator>(const BigInteger& other) const { return !(*this <= other); }
+    bool operator>=(const BigInteger& other) const { return !(*this < other); }
     
     // Modular operations
     BigInteger mod_pow(const BigInteger& exponent, const BigInteger& modulus) const;
     BigInteger mod_inverse(const BigInteger& modulus) const;
-    BigInteger gcd(const BigInteger& other) const;
     
     // Utility methods
     bool is_zero() const;
     bool is_odd() const;
-    size_t bit_length() const;
     std::vector<uint8_t> to_bytes() const;
-    std::string to_string() const;
+    static BigInteger from_bytes(const std::vector<uint8_t>& bytes) { return BigInteger(bytes); }
     
     // Prime operations
     static BigInteger generate_prime(size_t bit_length);
     bool is_prime() const;
-    
-private:
-    void normalize();
-    int compare_abs(const BigInteger& other) const;
 };
 
 /**
