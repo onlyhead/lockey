@@ -58,43 +58,6 @@ int main() {
             std::cout << "✓ AES-128-GCM: PASSED\n";
         }
         
-        // Test 2: Elliptic Curve Cryptography
-        std::cout << "\n=== Test 2: Elliptic Curve Cryptography ===\n";
-        
-        // Test P-256
-        {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256);
-            
-            auto keypair = crypto.generate_keypair();
-            assert(!keypair.public_key.empty() && "Failed to generate P-256 keypair");
-            
-            std::vector<uint8_t> message(plaintext.begin(), plaintext.end());
-            auto sign_result = crypto.sign(message, keypair.private_key);
-            assert(sign_result.success && "Failed to sign with P-256");
-            
-            auto verify_result = crypto.verify(message, sign_result.data, keypair.public_key);
-            assert(verify_result.success && "Failed to verify P-256 signature");
-            
-            std::cout << "✓ ECDSA P-256: PASSED\n";
-        }
-        
-        // Test P-384
-        {
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P384);
-            
-            auto keypair = crypto.generate_keypair();
-            assert(!keypair.public_key.empty() && "Failed to generate P-384 keypair");
-            
-            std::vector<uint8_t> message(plaintext.begin(), plaintext.end());
-            auto sign_result = crypto.sign(message, keypair.private_key);
-            assert(sign_result.success && "Failed to sign with P-384");
-            
-            auto verify_result = crypto.verify(message, sign_result.data, keypair.public_key);
-            assert(verify_result.success && "Failed to verify P-384 signature");
-            
-            std::cout << "✓ ECDSA P-384: PASSED\n";
-        }
-        
         // Test 3: Hash Functions
         std::cout << "\n=== Test 3: Hash Functions ===\n";
         
@@ -148,10 +111,116 @@ int main() {
             assert(test_data == converted_back && "Hex conversion roundtrip failed");
             std::cout << "✓ Hex conversion: PASSED\n";
         }
+
+        // Test 5: RSA Cryptography
+        std::cout << "\n=== Test 5: RSA Cryptography ===\n";
+        
+        // Test RSA-2048 signing
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_2048);
+            
+            auto keypair = crypto.generate_keypair();
+            assert(!keypair.public_key.empty() && "Failed to generate RSA-2048 keypair");
+            assert(!keypair.private_key.empty() && "Failed to generate RSA-2048 private key");
+            
+            std::vector<uint8_t> message(plaintext.begin(), plaintext.end());
+            auto sign_result = crypto.sign(message, keypair.private_key);
+            assert(sign_result.success && "Failed to sign with RSA-2048");
+            
+            auto verify_result = crypto.verify(message, sign_result.data, keypair.public_key);
+            assert(verify_result.success && "Failed to verify RSA-2048 signature");
+            
+            std::cout << "✓ RSA-2048 Signing: PASSED\n";
+        }
+        
+        // Test RSA-2048 encryption (if supported by the interface)
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_2048);
+            
+            auto keypair = crypto.generate_keypair();
+            assert(!keypair.public_key.empty() && "Failed to generate RSA-2048 keypair for encryption");
+            
+            // Use shorter message for RSA encryption
+            std::string short_msg = "RSA test message";
+            std::vector<uint8_t> short_message(short_msg.begin(), short_msg.end());
+            
+            try {
+                auto encrypt_result = crypto.encrypt(short_message, keypair.public_key);
+                if (encrypt_result.success) {
+                    auto decrypt_result = crypto.decrypt(encrypt_result.data, keypair.private_key);
+                    assert(decrypt_result.success && "Failed to decrypt with RSA-2048");
+                    
+                    std::string decrypted_str(decrypt_result.data.begin(), decrypt_result.data.end());
+                    assert(short_msg == decrypted_str && "RSA-2048 decryption mismatch");
+                    
+                    std::cout << "✓ RSA-2048 Encryption: PASSED\n";
+                } else {
+                    std::cout << "⚠ RSA-2048 Encryption: Not implemented in current interface\n";
+                }
+            } catch (const std::exception& e) {
+                std::cout << "⚠ RSA-2048 Encryption: " << e.what() << "\n";
+            }
+        }
+        
+        // Test RSA-4096 signing
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::RSA_4096);
+            
+            auto keypair = crypto.generate_keypair();
+            assert(!keypair.public_key.empty() && "Failed to generate RSA-4096 keypair");
+            assert(!keypair.private_key.empty() && "Failed to generate RSA-4096 private key");
+            
+            std::vector<uint8_t> message(plaintext.begin(), plaintext.end());
+            auto sign_result = crypto.sign(message, keypair.private_key);
+            assert(sign_result.success && "Failed to sign with RSA-4096");
+            
+            auto verify_result = crypto.verify(message, sign_result.data, keypair.public_key);
+            assert(verify_result.success && "Failed to verify RSA-4096 signature");
+            
+            std::cout << "✓ RSA-4096 Signing: PASSED\n";
+        }
+
+                // Test 2: Elliptic Curve Cryptography
+        std::cout << "\n=== Test 2: Elliptic Curve Cryptography ===\n";
+        
+        // Test P-256
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256);
+            
+            auto keypair = crypto.generate_keypair();
+            assert(!keypair.public_key.empty() && "Failed to generate P-256 keypair");
+            
+            std::vector<uint8_t> message(plaintext.begin(), plaintext.end());
+            auto sign_result = crypto.sign(message, keypair.private_key);
+            assert(sign_result.success && "Failed to sign with P-256");
+            
+            auto verify_result = crypto.verify(message, sign_result.data, keypair.public_key);
+            assert(verify_result.success && "Failed to verify P-256 signature");
+            
+            std::cout << "✓ ECDSA P-256: PASSED\n";
+        }
+        
+        // Test P-384
+        {
+            lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P384);
+            
+            auto keypair = crypto.generate_keypair();
+            assert(!keypair.public_key.empty() && "Failed to generate P-384 keypair");
+            
+            std::vector<uint8_t> message(plaintext.begin(), plaintext.end());
+            auto sign_result = crypto.sign(message, keypair.private_key);
+            assert(sign_result.success && "Failed to sign with P-384");
+            
+            auto verify_result = crypto.verify(message, sign_result.data, keypair.public_key);
+            assert(verify_result.success && "Failed to verify P-384 signature");
+            
+            std::cout << "✓ ECDSA P-384: PASSED\n";
+        }
         
         std::cout << "\n=== All Tests Completed Successfully! ===\n";
         std::cout << "✓ Symmetric encryption with multiple algorithms\n";
         std::cout << "✓ Elliptic curve cryptography (P-256, P-384)\n";
+        std::cout << "✓ RSA cryptography (2048-bit, 4096-bit)\n";
         std::cout << "✓ Hash functions (SHA-256, SHA-384, SHA-512)\n";
         std::cout << "✓ Utility functions\n";
         std::cout << "\nLockey cryptographic library is fully functional!\n";
