@@ -22,7 +22,7 @@
 #include "crypto/crypto_impl.hpp"
 #include "hash/hash_impl.hpp"
 #include "ec/ec_impl.hpp"
-#include "rsa/rsa_impl_simple.hpp"
+#include "rsa/rsa_impl.hpp"
 
 namespace lockey {
 
