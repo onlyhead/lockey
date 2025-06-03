@@ -83,11 +83,8 @@ if(LOCKEY_BUILD_EXAMPLES)
 
   set(exe
     examples/main.cpp
-    examples/debug.cpp
-    examples/universal_api_demo.cpp
-    examples/quick_test.cpp
-    examples/key_io.cpp
-    examples/hash_demo.cpp
+    examples/test_lockey.cpp
+    examples/test_comprehensive.cpp
   )
   # ----------------------------------------------
   set(exec_names)

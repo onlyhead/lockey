@@ -1,90 +1,200 @@
 #include <iostream>
-#include <string>
 #include <vector>
-#include "lockey/lockey.hpp"
+#include <string>
+#include "../include/lockey/lockey.hpp"
 
-int main() {
-    std::cout << "=== Lockey Cryptography Library Demo ===" << std::endl;
+void print_hex(const std::string& label, const std::vector<uint8_t>& data) {
+    std::cout << label << ": ";
+    for (uint8_t byte : data) {
+        printf("%02x", byte);
+    }
+    std::cout << std::endl;
+}
+
+void test_symmetric_encryption() {
+    std::cout << "\n=== Testing Symmetric Encryption (AES-256-GCM) ===" << std::endl;
     
     try {
-        // 1. Generate RSA key pair
-        std::cout << "\n1. Generating RSA key pair..." << std::endl;
-        auto keyPair = lockey::Lockey::generateKeyPair();
-        std::cout << "✓ Key pair generated successfully" << std::endl;
-        std::cout << "Public key size: " << keyPair.publicKey.size() << " bytes" << std::endl;
-        std::cout << "Private key size: " << keyPair.privateKey.size() << " bytes" << std::endl;
+        // Create Lockey instance with AES-256-GCM
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, 
+                             lockey::Lockey::HashAlgorithm::SHA256);
         
-        // 2. Message signing and verification
-        std::cout << "\n2. Testing digital signatures..." << std::endl;
-        std::string message = "Hello, this is a test message for digital signing!";
-        std::cout << "Original message: " << message << std::endl;
+        // Generate a symmetric key
+        auto key_result = crypto.generate_symmetric_key(32);
+        if (!key_result.success) {
+            std::cout << "Failed to generate symmetric key: " << key_result.error_message << std::endl;
+            return;
+        }
         
-        // Sign the message
-        std::string signature = lockey::Lockey::sign(message, keyPair.privateKey);
-        std::cout << "✓ Message signed" << std::endl;
-        std::cout << "Signature (hex): " << signature.substr(0, 64) << "..." << std::endl;
+        print_hex("Generated key", key_result.data);
         
-        // Verify the signature
-        bool isValid = lockey::Lockey::verify(message, signature, keyPair.publicKey);
-        std::cout << "✓ Signature verification: " << (isValid ? "VALID" : "INVALID") << std::endl;
+        // Test data
+        std::string plaintext_str = "Hello, Lockey! This is a test message for encryption.";
+        std::vector<uint8_t> plaintext(plaintext_str.begin(), plaintext_str.end());
         
-        // Test with tampered message
-        std::string tamperedMessage = message + " [TAMPERED]";
-        bool isTamperedValid = lockey::Lockey::verify(tamperedMessage, signature, keyPair.publicKey);
-        std::cout << "✓ Tampered message verification: " << (isTamperedValid ? "VALID" : "INVALID") << std::endl;
+        std::cout << "Original text: " << plaintext_str << std::endl;
+        print_hex("Plaintext bytes", plaintext);
         
-        // 3. Message encryption and decryption
-        std::cout << "\n3. Testing encryption/decryption..." << std::endl;
-        std::string plaintext = "This is a secret message!";
-        std::cout << "Original plaintext: " << plaintext << std::endl;
+        // Encrypt the data
+        auto encrypted = crypto.encrypt(plaintext, key_result.data);
+        if (!encrypted.success) {
+            std::cout << "Encryption failed: " << encrypted.error_message << std::endl;
+            return;
+        }
         
-        // Encrypt the message
-        std::string encrypted = lockey::Lockey::encrypt(plaintext, keyPair.publicKey);
-        std::cout << "✓ Message encrypted" << std::endl;
-        std::cout << "Encrypted (hex): " << encrypted.substr(0, 64) << "..." << std::endl;
+        print_hex("Encrypted data", encrypted.data);
         
-        // Decrypt the message
-        std::string decrypted = lockey::Lockey::decrypt(encrypted, keyPair.privateKey);
-        std::cout << "✓ Message decrypted" << std::endl;
-        std::cout << "Decrypted plaintext: " << decrypted << std::endl;
-        std::cout << "Decryption successful: " << (plaintext == decrypted ? "YES" : "NO") << std::endl;
+        // Decrypt the data
+        auto decrypted = crypto.decrypt(encrypted.data, key_result.data);
+        if (!decrypted.success) {
+            std::cout << "Decryption failed: " << decrypted.error_message << std::endl;
+            return;
+        }
         
-        // 4. Hashing
-        std::cout << "\n4. Testing hashing..." << std::endl;
-        std::string dataToHash = "This data will be hashed using BLAKE2s";
-        std::cout << "Data to hash: " << dataToHash << std::endl;
+        print_hex("Decrypted data", decrypted.data);
         
-        std::string hashResult = lockey::Lockey::hash(dataToHash);
-        std::cout << "✓ Hash computed" << std::endl;
-        std::cout << "BLAKE2s hash: " << hashResult << std::endl;
+        std::string decrypted_str(decrypted.data.begin(), decrypted.data.end());
+        std::cout << "Decrypted text: " << decrypted_str << std::endl;
         
-        // Verify hash consistency
-        std::string hashResult2 = lockey::Lockey::hash(dataToHash);
-        std::cout << "Hash consistency: " << (hashResult == hashResult2 ? "CONSISTENT" : "INCONSISTENT") << std::endl;
-        
-        // 5. Binary data operations
-        std::cout << "\n5. Testing binary data operations..." << std::endl;
-        std::vector<uint8_t> binaryData = {0x48, 0x65, 0x6C, 0x6C, 0x6F}; // "Hello"
-        
-        // Sign binary data
-        auto binarySignature = lockey::Lockey::signBytes(binaryData, keyPair.privateKey);
-        std::cout << "✓ Binary data signed" << std::endl;
-        
-        // Verify binary signature
-        bool binaryVerified = lockey::Lockey::verifyBytes(binaryData, binarySignature, keyPair.publicKey);
-        std::cout << "✓ Binary signature verification: " << (binaryVerified ? "VALID" : "INVALID") << std::endl;
-        
-        // Hash binary data
-        auto binaryHash = lockey::Lockey::hashBytes(binaryData);
-        std::cout << "✓ Binary data hashed" << std::endl;
-        std::cout << "Binary hash (hex): " << lockey::Lockey::bytesToHex(binaryHash) << std::endl;
-        
-        std::cout << "\n=== All tests completed successfully! ===" << std::endl;
+        if (plaintext_str == decrypted_str) {
+            std::cout << "✓ Symmetric encryption test PASSED!" << std::endl;
+        } else {
+            std::cout << "✗ Symmetric encryption test FAILED!" << std::endl;
+        }
         
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
+        std::cout << "Exception in symmetric encryption test: " << e.what() << std::endl;
     }
+}
+
+void test_key_generation() {
+    std::cout << "\n=== Testing Key Generation ===" << std::endl;
+    
+    try {
+        // Test ECDSA P-256 key generation
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256, 
+                             lockey::Lockey::HashAlgorithm::SHA256);
+        
+        auto keypair = crypto.generate_keypair();
+        
+        std::cout << "Algorithm: ECDSA P-256" << std::endl;
+        print_hex("Public key", keypair.public_key);
+        print_hex("Private key", keypair.private_key);
+        
+        std::cout << "✓ Key generation test PASSED!" << std::endl;
+        
+    } catch (const std::exception& e) {
+        std::cout << "Exception in key generation test: " << e.what() << std::endl;
+    }
+}
+
+void test_digital_signatures() {
+    std::cout << "\n=== Testing Digital Signatures (ECDSA P-256) ===" << std::endl;
+    
+    try {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::ECDSA_P256, 
+                             lockey::Lockey::HashAlgorithm::SHA256);
+        
+        // Generate a key pair
+        auto keypair = crypto.generate_keypair();
+        
+        // Message to sign
+        std::string message = "This is a message to be signed.";
+        std::vector<uint8_t> message_bytes(message.begin(), message.end());
+        
+        std::cout << "Message: " << message << std::endl;
+        print_hex("Message bytes", message_bytes);
+        
+        // Sign the message
+        auto signature = crypto.sign(message_bytes, keypair.private_key);
+        if (!signature.success) {
+            std::cout << "Signing failed: " << signature.error_message << std::endl;
+            return;
+        }
+        
+        print_hex("Signature", signature.data);
+        
+        // Verify the signature
+        auto verify_result = crypto.verify(message_bytes, signature.data, keypair.public_key);
+        
+        if (verify_result.success) {
+            std::cout << "✓ Digital signature test PASSED!" << std::endl;
+        } else {
+            std::cout << "✗ Digital signature test FAILED: " << verify_result.error_message << std::endl;
+        }
+        
+    } catch (const std::exception& e) {
+        std::cout << "Exception in digital signature test: " << e.what() << std::endl;
+    }
+}
+
+void test_hashing() {
+    std::cout << "\n=== Testing Hash Functions ===" << std::endl;
+    
+    try {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, 
+                             lockey::Lockey::HashAlgorithm::SHA256);
+        
+        std::string test_data = "The quick brown fox jumps over the lazy dog";
+        std::vector<uint8_t> data(test_data.begin(), test_data.end());
+        
+        std::cout << "Input: " << test_data << std::endl;
+        
+        // Test SHA-256
+        auto hash_result = crypto.hash(data);
+        if (!hash_result.success) {
+            std::cout << "Hashing failed: " << hash_result.error_message << std::endl;
+            return;
+        }
+        
+        print_hex("SHA-256 hash", hash_result.data);
+        
+        std::cout << "✓ Hash function test PASSED!" << std::endl;
+        
+    } catch (const std::exception& e) {
+        std::cout << "Exception in hash test: " << e.what() << std::endl;
+    }
+}
+
+void test_utility_functions() {
+    std::cout << "\n=== Testing Utility Functions ===" << std::endl;
+    
+    try {
+        std::vector<uint8_t> test_data = {0x48, 0x65, 0x6c, 0x6c, 0x6f}; // "Hello"
+        
+        // Test hex conversion
+        std::string hex = lockey::Lockey::to_hex(test_data);
+        std::cout << "Original data: ";
+        for (uint8_t b : test_data) std::cout << static_cast<char>(b);
+        std::cout << std::endl;
+        std::cout << "Hex representation: " << hex << std::endl;
+        
+        auto converted_back = lockey::Lockey::from_hex(hex);
+        print_hex("Converted back", converted_back);
+        
+        if (test_data == converted_back) {
+            std::cout << "✓ Utility functions test PASSED!" << std::endl;
+        } else {
+            std::cout << "✗ Utility functions test FAILED!" << std::endl;
+        }
+        
+    } catch (const std::exception& e) {
+        std::cout << "Exception in utility test: " << e.what() << std::endl;
+    }
+}
+
+int main() {
+    std::cout << "Lockey Cryptographic Library - Test Suite" << std::endl;
+    std::cout << "=========================================" << std::endl;
+    
+    test_symmetric_encryption();
+    test_key_generation();
+    test_digital_signatures();
+    test_hashing();
+    test_utility_functions();
+    
+    std::cout << "\n=========================================" << std::endl;
+    std::cout << "Test suite completed!" << std::endl;
     
     return 0;
 }
