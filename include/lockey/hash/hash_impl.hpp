@@ -283,5 +283,87 @@ inline void SHA512::process_block() {
     state_[7] += h;
 }
 
+// BLAKE2b Implementation
+inline void BLAKE2b::update(const uint8_t* data, size_t length) {
+    total_length_ += length;
+    
+    while (length > 0) {
+        size_t space_in_buffer = BLOCK_SIZE - buffer_length_;
+        size_t to_copy = (length < space_in_buffer) ? length : space_in_buffer;
+        
+        std::memcpy(buffer_.data() + buffer_length_, data, to_copy);
+        buffer_length_ += to_copy;
+        data += to_copy;
+        length -= to_copy;
+        
+        if (buffer_length_ == BLOCK_SIZE) {
+            process_block();
+            buffer_length_ = 0;
+        }
+    }
+}
+
+inline void BLAKE2b::finalize(uint8_t* output) {
+    // Pad with zeros if needed
+    if (buffer_length_ < BLOCK_SIZE) {
+        std::memset(buffer_.data() + buffer_length_, 0, BLOCK_SIZE - buffer_length_);
+    }
+    
+    process_block(true); // Final block
+    
+    // Convert state to little-endian and copy to output
+    for (size_t i = 0; i < digest_length_; ++i) {
+        output[i] = (state_[i / 8] >> ((i % 8) * 8)) & 0xFF;
+    }
+}
+
+inline void BLAKE2b::process_block(bool is_final) {
+    std::array<uint64_t, 16> v;
+    std::array<uint64_t, 16> m;
+    
+    // Initialize local work vector
+    for (int i = 0; i < 8; ++i) {
+        v[i] = state_[i];
+        v[i + 8] = IV[i];
+    }
+    
+    // XOR in the counter and final block flag
+    v[12] ^= total_length_;
+    v[13] ^= 0; // High word of counter (we don't support > 2^64 bytes)
+    if (is_final) {
+        v[14] ^= 0xFFFFFFFFFFFFFFFFULL;
+    }
+    
+    // Convert message block to 64-bit words (little-endian)
+    for (int i = 0; i < 16; ++i) {
+        m[i] = 0;
+        for (int j = 0; j < 8; ++j) {
+            m[i] |= static_cast<uint64_t>(buffer_[i * 8 + j]) << (j * 8);
+        }
+    }
+    
+    // 12 rounds of mixing
+    for (int round = 0; round < 12; ++round) {
+        const auto& s = SIGMA[round];
+        
+        // Column mixing
+        blake2b_mix(v, 0, 4, 8, 12, m[s[0]], m[s[1]]);
+        blake2b_mix(v, 1, 5, 9, 13, m[s[2]], m[s[3]]);
+        blake2b_mix(v, 2, 6, 10, 14, m[s[4]], m[s[5]]);
+        blake2b_mix(v, 3, 7, 11, 15, m[s[6]], m[s[7]]);
+        
+        // Diagonal mixing
+        blake2b_mix(v, 0, 5, 10, 15, m[s[8]], m[s[9]]);
+        blake2b_mix(v, 1, 6, 11, 12, m[s[10]], m[s[11]]);
+        blake2b_mix(v, 2, 7, 8, 13, m[s[12]], m[s[13]]);
+        blake2b_mix(v, 3, 4, 9, 14, m[s[14]], m[s[15]]);
+    }
+    
+    // XOR the two halves
+    for (int i = 0; i < 8; ++i) {
+        state_[i] ^= v[i] ^ v[i + 8];
+    }
+}
+
 } // namespace hash
 } // namespace lockey

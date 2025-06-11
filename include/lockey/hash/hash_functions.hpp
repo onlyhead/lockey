@@ -235,6 +235,89 @@ public:
 };
 
 /**
+ * @brief BLAKE2b implementation
+ */
+class BLAKE2b : public HashBase {
+private:
+    static constexpr size_t DIGEST_SIZE = 64;
+    static constexpr size_t BLOCK_SIZE = 128;
+    static constexpr size_t MAX_KEY_SIZE = 64;
+    
+    std::array<uint64_t, 8> state_;
+    std::array<uint8_t, BLOCK_SIZE> buffer_;
+    size_t buffer_length_;
+    uint64_t total_length_;
+    size_t digest_length_;
+    
+    // BLAKE2b initialization vectors
+    static constexpr std::array<uint64_t, 8> IV = {
+        0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL, 0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
+        0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL, 0x1f83d9abfb41bd6bULL, 0x5be0cd19137e2179ULL
+    };
+    
+    // BLAKE2b sigma permutations
+    static constexpr std::array<std::array<int, 16>, 12> SIGMA = {{
+        {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}},
+        {{14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3}},
+        {{11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4}},
+        {{7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8}},
+        {{9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13}},
+        {{2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9}},
+        {{12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11}},
+        {{13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10}},
+        {{6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5}},
+        {{10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0}},
+        {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}},
+        {{14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3}}
+    }};
+    
+    void process_block(bool is_final = false);
+    static uint64_t rotr(uint64_t x, int n) { return (x >> n) | (x << (64 - n)); }
+    
+    void blake2b_mix(std::array<uint64_t, 16>& v, int a, int b, int c, int d, uint64_t x, uint64_t y) {
+        v[a] = v[a] + v[b] + x;
+        v[d] = rotr(v[d] ^ v[a], 32);
+        v[c] = v[c] + v[d];
+        v[b] = rotr(v[b] ^ v[c], 24);
+        v[a] = v[a] + v[b] + y;
+        v[d] = rotr(v[d] ^ v[a], 16);
+        v[c] = v[c] + v[d];
+        v[b] = rotr(v[b] ^ v[c], 63);
+    }
+
+public:
+    BLAKE2b(size_t digest_size = DIGEST_SIZE) : digest_length_(digest_size) {
+        if (digest_size == 0 || digest_size > DIGEST_SIZE) {
+            throw std::runtime_error("Invalid BLAKE2b digest size");
+        }
+        init();
+    }
+    
+    void init() override {
+        state_ = IV;
+        // XOR first state word with parameter block
+        state_[0] ^= 0x01010000ULL ^ (static_cast<uint64_t>(digest_length_) << 16);
+        
+        buffer_length_ = 0;
+        total_length_ = 0;
+    }
+    
+    void update(const uint8_t* data, size_t length) override;
+    void finalize(uint8_t* output) override;
+    size_t digest_size() const override { return digest_length_; }
+    size_t block_size() const override { return BLOCK_SIZE; }
+    
+    // Convenience method to compute hash in one call
+    std::vector<uint8_t> compute(const std::vector<uint8_t>& data) {
+        init();
+        update(data.data(), data.size());
+        std::vector<uint8_t> result(digest_length_);
+        finalize(result.data());
+        return result;
+    }
+};
+
+/**
  * @brief HMAC implementation
  */
 template<typename HashFunction>

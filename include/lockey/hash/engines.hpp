@@ -58,5 +58,20 @@ public:
     size_t hash_size() const override { return 64; }
 };
 
+class BLAKE2bEngine : public HashEngine {
+public:
+    std::vector<uint8_t> hash(const std::vector<uint8_t>& data) override {
+        BLAKE2b hasher;
+        return hasher.compute(data);
+    }
+    
+    std::vector<uint8_t> hmac(const std::vector<uint8_t>& key, const std::vector<uint8_t>& data) override {
+        HMAC<BLAKE2b> hmac_instance(key);
+        return hmac_instance.compute(data);
+    }
+    
+    size_t hash_size() const override { return 64; }
+};
+
 } // namespace hash
 } // namespace lockey

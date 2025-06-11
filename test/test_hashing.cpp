@@ -37,11 +37,13 @@ TEST_SUITE("Hash Functions") {
         CHECK(result.error_message.empty());
     }
 
-    TEST_CASE("BLAKE2b hashing (should fail - not implemented)") {
-        // This should throw during construction
-        CHECK_THROWS_AS(
-            lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::BLAKE2b),
-            std::runtime_error);
+    TEST_CASE("BLAKE2b hashing") {
+        lockey::Lockey crypto(lockey::Lockey::Algorithm::AES_256_GCM, lockey::Lockey::HashAlgorithm::BLAKE2b);
+
+        auto result = crypto.hash(test_data);
+        REQUIRE(result.success);
+        CHECK(result.data.size() == 64); // BLAKE2b produces 64 bytes by default
+        CHECK(result.error_message.empty());
     }
 
     TEST_CASE("Empty data hashing") {
