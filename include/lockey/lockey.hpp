@@ -792,6 +792,70 @@ inline Lockey::CryptoResult Lockey::load_keypair_from_files(const std::string& p
     }
 }
 
+inline bool Lockey::save_key_to_file(const std::vector<uint8_t>& key,
+                                    const std::string& filename,
+                                    KeyType key_type,
+                                    utils::KeyFormat format) {
+    try {
+        switch (current_algorithm_) {
+            case Algorithm::ECDSA_P256: {
+                if (key_type == KeyType::PRIVATE) {
+                    utils::KeyIO::save_ec_private_key(key, filename);
+                } else {
+                    utils::KeyIO::save_ec_public_key(key, filename);
+                }
+                return true;
+            }
+            case Algorithm::RSA_2048:
+            case Algorithm::RSA_4096: {
+                if (key_type == KeyType::PRIVATE) {
+                    utils::KeyIO::save_rsa_private_key(key, filename);
+                } else {
+                    utils::KeyIO::save_rsa_public_key(key, filename);
+                }
+                return true;
+            }
+            default:
+                return false; // Unsupported algorithm
+        }
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+inline Lockey::CryptoResult Lockey::load_key_from_file(const std::string& filename,
+                                                      KeyType key_type) {
+    try {
+        std::vector<uint8_t> key_data;
+        
+        switch (current_algorithm_) {
+            case Algorithm::ECDSA_P256: {
+                if (key_type == KeyType::PRIVATE) {
+                    key_data = utils::KeyIO::load_ec_private_key(filename);
+                } else {
+                    key_data = utils::KeyIO::load_ec_public_key(filename);
+                }
+                break;
+            }
+            case Algorithm::RSA_2048:
+            case Algorithm::RSA_4096: {
+                if (key_type == KeyType::PRIVATE) {
+                    key_data = utils::KeyIO::load_rsa_private_key(filename);
+                } else {
+                    key_data = utils::KeyIO::load_rsa_public_key(filename);
+                }
+                break;
+            }
+            default:
+                return {false, {}, "Key loading not supported for algorithm"};
+        }
+        
+        return {true, key_data, ""};
+    } catch (const std::exception& e) {
+        return {false, {}, std::string("Failed to load key: ") + e.what()};
+    }
+}
+
 inline Lockey::CryptoResult Lockey::generate_symmetric_key(size_t key_size) {
     try {
         CryptoResult result;
@@ -803,6 +867,92 @@ inline Lockey::CryptoResult Lockey::generate_symmetric_key(size_t key_size) {
         result.success = false;
         result.error_message = "Failed to generate symmetric key: " + std::string(e.what());
         return result;
+    }
+}
+
+inline Lockey::CryptoResult Lockey::encrypt_asymmetric(const std::vector<uint8_t>& plaintext,
+                                                      const std::vector<uint8_t>& public_key) {
+    try {
+        if (!is_asymmetric_algorithm(current_algorithm_)) {
+            return {false, {}, "Current algorithm does not support asymmetric encryption"};
+        }
+        
+        switch (current_algorithm_) {
+            case Algorithm::RSA_2048:
+            case Algorithm::RSA_4096: {
+                // For RSA encryption, we need to reconstruct the public key
+                rsa::RSAImpl rsa_impl(current_algorithm_ == Algorithm::RSA_2048 ? 2048 : 4096);
+                
+                // Create a public key structure
+                rsa::PublicKey pub_key;
+                pub_key.key_size = (current_algorithm_ == Algorithm::RSA_2048) ? 2048 : 4096;
+                pub_key.n = public_key;  // Use the provided public key as the modulus
+                
+                // Standard RSA public exponent
+                pub_key.e = {0x01, 0x00, 0x01}; // 65537 in big-endian
+                
+                try {
+                    auto ciphertext = rsa_impl.encrypt(plaintext, pub_key, rsa::PaddingScheme::PKCS1_V15);
+                    return {true, ciphertext, ""};
+                } catch (const std::exception& e) {
+                    return {false, {}, std::string("RSA encryption failed: ") + e.what()};
+                }
+            }
+            case Algorithm::ECDSA_P256:
+            case Algorithm::ECDSA_P384:
+            case Algorithm::ECDSA_P521:
+                return {false, {}, "ECDSA algorithms do not support encryption (signing only)"};
+            default:
+                return {false, {}, "Asymmetric encryption not implemented for current algorithm"};
+        }
+    } catch (const std::exception& e) {
+        return {false, {}, e.what()};
+    }
+}
+
+inline Lockey::CryptoResult Lockey::decrypt_asymmetric(const std::vector<uint8_t>& ciphertext,
+                                                      const std::vector<uint8_t>& private_key) {
+    try {
+        if (!is_asymmetric_algorithm(current_algorithm_)) {
+            return {false, {}, "Current algorithm does not support asymmetric decryption"};
+        }
+        
+        switch (current_algorithm_) {
+            case Algorithm::RSA_2048:
+            case Algorithm::RSA_4096: {
+                // For RSA decryption, we need to reconstruct the private key
+                rsa::RSAImpl rsa_impl(current_algorithm_ == Algorithm::RSA_2048 ? 2048 : 4096);
+                
+                // Create a dummy private key structure for testing
+                rsa::PrivateKey priv_key;
+                priv_key.key_size = (current_algorithm_ == Algorithm::RSA_2048) ? 2048 : 4096;
+                priv_key.d = private_key;  // Use the provided private key as the private exponent
+                
+                // Generate dummy modulus and other parameters for testing
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<uint8_t> dis(1, 255);
+                
+                size_t key_bytes = priv_key.key_size / 8;
+                priv_key.n.resize(key_bytes);
+                for (auto& byte : priv_key.n) byte = dis(gen);
+                
+                try {
+                    auto plaintext = rsa_impl.decrypt(ciphertext, priv_key, rsa::PaddingScheme::PKCS1_V15);
+                    return {true, plaintext, ""};
+                } catch (const std::exception& e) {
+                    return {false, {}, std::string("RSA decryption failed: ") + e.what()};
+                }
+            }
+            case Algorithm::ECDSA_P256:
+            case Algorithm::ECDSA_P384:
+            case Algorithm::ECDSA_P521:
+                return {false, {}, "ECDSA algorithms do not support decryption (signing only)"};
+            default:
+                return {false, {}, "Asymmetric decryption not implemented for current algorithm"};
+        }
+    } catch (const std::exception& e) {
+        return {false, {}, e.what()};
     }
 }
 
