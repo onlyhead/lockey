@@ -1,7 +1,8 @@
+<img align="right" width="26%" src="./misc/logo.png">
 
 # Lockey
 
-A lightweight, header-only C++20 encrypt/decrypt sign/verify mirror key library
+A lightweight, header-only C++20 encrypt/decrypt and sign/verify mirror key library
 
 ## Overview
 

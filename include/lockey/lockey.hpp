@@ -675,6 +675,71 @@ inline Lockey::CryptoResult Lockey::hash(const std::vector<uint8_t>& data) {
     }
 }
 
+inline Lockey::CryptoResult Lockey::hmac(const std::vector<uint8_t>& data,
+                                        const std::vector<uint8_t>& key) {
+    try {
+        // HMAC implementation according to RFC 2104
+        size_t block_size = 64; // SHA-256/384/512 all use 64-byte blocks
+        
+        // Validate hash algorithm
+        switch (current_hash_) {
+            case HashAlgorithm::SHA256:
+            case HashAlgorithm::SHA384:
+            case HashAlgorithm::SHA512:
+                break; // Supported
+            default:
+                return {false, {}, "Unsupported hash algorithm for HMAC"};
+        }
+        
+        // Step 1: Prepare the key
+        std::vector<uint8_t> k_pad(block_size, 0);
+        if (key.size() > block_size) {
+            // If key is longer than block size, hash it
+            auto hash_result = hash(key);
+            if (!hash_result.success) {
+                return {false, {}, "Failed to hash key: " + hash_result.error_message};
+            }
+            std::copy(hash_result.data.begin(), hash_result.data.end(), k_pad.begin());
+        } else {
+            // If key is shorter or equal, pad with zeros
+            std::copy(key.begin(), key.end(), k_pad.begin());
+        }
+        
+        // Step 2: Create inner and outer padded keys
+        std::vector<uint8_t> i_key_pad(block_size);
+        std::vector<uint8_t> o_key_pad(block_size);
+        
+        for (size_t i = 0; i < block_size; i++) {
+            i_key_pad[i] = k_pad[i] ^ 0x36; // Inner pad
+            o_key_pad[i] = k_pad[i] ^ 0x5c; // Outer pad
+        }
+        
+        // Step 3: Hash(o_key_pad || Hash(i_key_pad || data))
+        std::vector<uint8_t> inner_input;
+        inner_input.insert(inner_input.end(), i_key_pad.begin(), i_key_pad.end());
+        inner_input.insert(inner_input.end(), data.begin(), data.end());
+        
+        auto inner_hash = hash(inner_input);
+        if (!inner_hash.success) {
+            return {false, {}, "Failed to compute inner hash: " + inner_hash.error_message};
+        }
+        
+        std::vector<uint8_t> outer_input;
+        outer_input.insert(outer_input.end(), o_key_pad.begin(), o_key_pad.end());
+        outer_input.insert(outer_input.end(), inner_hash.data.begin(), inner_hash.data.end());
+        
+        auto outer_hash = hash(outer_input);
+        if (!outer_hash.success) {
+            return {false, {}, "Failed to compute outer hash: " + outer_hash.error_message};
+        }
+        
+        return {true, outer_hash.data, ""};
+        
+    } catch (const std::exception& e) {
+        return {false, {}, e.what()};
+    }
+}
+
 inline bool Lockey::save_keypair_to_files(const KeyPair& keypair,
                                         const std::string& public_filename,
                                         const std::string& private_filename,
