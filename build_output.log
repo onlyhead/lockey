@@ -1,0 +1,15 @@
+[  6%] Built target main
+[ 13%] Built target test_comprehensive
+[ 20%] Built target test_lockey
+[ 26%] Built target doctest_with_main
+[ 33%] Built target test_asymmetric_encryption
+[ 40%] Built target test_construction
+[ 46%] Built target test_hashing
+[ 53%] Built target test_hmac
+[ 60%] Built target test_key_generation
+[ 66%] Built target test_key_io
+[ 73%] Built target test_key_io_simple
+[ 80%] Built target test_missing_features
+[ 86%] Built target test_signatures
+[ 93%] Built target test_symmetric_encryption
+[100%] Built target test_utilities

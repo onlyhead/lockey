@@ -1,15 +1,15 @@
-#include <doctest/doctest.h>
 #include "lockey/lockey.hpp"
+#include <doctest/doctest.h>
 
 TEST_SUITE("Utility Functions") {
     TEST_CASE("Hex conversion") {
         // Test basic hex conversion
         std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f}; // "Hello"
         std::string expected_hex = "48656c6c6f";
-        
+
         auto hex_result = lockey::Lockey::to_hex(data);
         CHECK(hex_result == expected_hex);
-        
+
         // Test reverse conversion
         auto data_result = lockey::Lockey::from_hex(hex_result);
         CHECK(data_result == data);
@@ -17,10 +17,10 @@ TEST_SUITE("Utility Functions") {
 
     TEST_CASE("Empty data hex conversion") {
         std::vector<uint8_t> empty_data;
-        
+
         auto hex_result = lockey::Lockey::to_hex(empty_data);
         CHECK(hex_result.empty());
-        
+
         auto data_result = lockey::Lockey::from_hex("");
         CHECK(data_result.empty());
     }
@@ -30,10 +30,10 @@ TEST_SUITE("Utility Functions") {
         for (int i = 0; i < 256; ++i) {
             all_bytes.push_back(static_cast<uint8_t>(i));
         }
-        
+
         auto hex_result = lockey::Lockey::to_hex(all_bytes);
         CHECK(hex_result.length() == 512); // 256 bytes * 2 hex chars each
-        
+
         auto data_result = lockey::Lockey::from_hex(hex_result);
         CHECK(data_result == all_bytes);
     }
@@ -41,24 +41,24 @@ TEST_SUITE("Utility Functions") {
     TEST_CASE("Invalid hex string handling") {
         // Test invalid hex characters
         auto result1 = lockey::Lockey::from_hex("xyz");
-        // Implementation dependent - might return empty or throw
-        
+        CHECK(result1.empty()); // Should return empty vector for invalid chars
+
         // Test odd length hex string
         auto result2 = lockey::Lockey::from_hex("48656c6c6");
-        // Implementation dependent behavior
-        
-        MESSAGE("Invalid hex handling behavior is implementation dependent");
+        CHECK(result2.empty()); // Should return empty vector for odd length
+
+        MESSAGE("Invalid hex handling returns empty vectors instead of throwing");
     }
 
     TEST_CASE("Case insensitive hex conversion") {
         std::vector<uint8_t> data = {0xAB, 0xCD, 0xEF};
-        
+
         auto hex_lower = lockey::Lockey::to_hex(data);
-        
+
         // Test that we can convert back uppercase hex
         auto data_from_upper = lockey::Lockey::from_hex("ABCDEF");
         auto data_from_lower = lockey::Lockey::from_hex("abcdef");
-        
+
         if (!data_from_upper.empty() && !data_from_lower.empty()) {
             CHECK(data_from_upper == data);
             CHECK(data_from_lower == data);
