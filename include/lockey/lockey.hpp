@@ -12,6 +12,8 @@
 #include "crypto/engines.hpp"
 #include "ec/elliptic_curve.hpp"
 #include "ec/engines.hpp"
+#include "ed25519/ed25519.hpp"
+#include "ed25519/ed25519_engine.hpp"
 #include "hash/engines.hpp"
 #include "hash/hash_functions.hpp"
 #include "rsa/rsa_crypto.hpp"
@@ -21,6 +23,7 @@
 // Include implementation files
 #include "crypto/crypto_impl.hpp"
 #include "ec/ec_impl.hpp"
+#include "ed25519/ed25519_impl.hpp"
 #include "hash/hash_impl.hpp"
 #include "rsa/rsa_impl.hpp"
 
@@ -92,6 +95,7 @@ namespace lockey {
         std::unique_ptr<hash::HashEngine> hash_engine_;
         std::unique_ptr<ec::ECEngine> ec_engine_;
         std::unique_ptr<rsa::RSAEngine> rsa_engine_;
+        std::unique_ptr<ed25519::Ed25519Engine> ed25519_engine_;
 
       public:
         /**
@@ -352,12 +356,17 @@ namespace lockey {
             rsa_engine_ = std::make_unique<rsa::RSAEngine>();
             break;
         case Algorithm::ECDSA_P256:
-        case Algorithm::ECDSA_P384:
-        case Algorithm::ECDSA_P521:
             ec_engine_ = std::make_unique<ec::P256Engine>();
             break;
+        case Algorithm::ECDSA_P384:
+            ec_engine_ = std::make_unique<ec::P384Engine>();
+            break;
+        case Algorithm::ECDSA_P521:
+            ec_engine_ = std::make_unique<ec::P521Engine>();
+            break;
         case Algorithm::Ed25519:
-            throw std::runtime_error("Ed25519 not implemented yet");
+            ed25519_engine_ = std::make_unique<ed25519::Ed25519Engine>();
+            break;
         }
     }
 
@@ -501,6 +510,48 @@ namespace lockey {
                                          keypair.public_key.y.end());
                 return result;
             }
+            case Algorithm::ECDSA_P384: {
+                ec::P384 curve;
+                auto private_key = curve.generate_private_key();
+                auto public_key_point = curve.compute_public_key(private_key);
+
+                KeyPair result;
+                result.algorithm = current_algorithm_;
+                result.private_key = private_key;
+
+                // Serialize public key (97 bytes: 0x04 + 48 + 48)
+                result.public_key.push_back(0x04); // Uncompressed point
+                result.public_key.insert(result.public_key.end(), public_key_point.x.begin(), public_key_point.x.end());
+                result.public_key.insert(result.public_key.end(), public_key_point.y.begin(), public_key_point.y.end());
+                return result;
+            }
+            case Algorithm::ECDSA_P521: {
+                ec::P521 curve;
+                auto private_key = curve.generate_private_key();
+                auto public_key_point = curve.compute_public_key(private_key);
+
+                KeyPair result;
+                result.algorithm = current_algorithm_;
+                result.private_key = private_key;
+
+                // Serialize public key (133 bytes: 0x04 + 66 + 66)
+                result.public_key.push_back(0x04); // Uncompressed point
+                result.public_key.insert(result.public_key.end(), public_key_point.x.begin(), public_key_point.x.end());
+                result.public_key.insert(result.public_key.end(), public_key_point.y.begin(), public_key_point.y.end());
+                return result;
+            }
+            case Algorithm::Ed25519: {
+                auto ed25519_keypair = ed25519_engine_->generate_keypair();
+
+                KeyPair result;
+                result.algorithm = current_algorithm_;
+                result.private_key = ed25519_keypair.private_key;
+
+                // For Ed25519, serialize the public key from the Point format
+                // Extract the x-coordinate which contains the actual Ed25519 public key
+                result.public_key = ed25519_keypair.public_key.x;
+                return result;
+            }
             default:
                 throw std::runtime_error("Key generation not supported for current algorithm");
             }
@@ -525,6 +576,28 @@ namespace lockey {
             switch (current_algorithm_) {
             case Algorithm::ECDSA_P256: {
                 ec::P256Curve curve;
+                auto signature = curve.sign(hash_result.data, private_key);
+
+                // Serialize signature (r || s)
+                std::vector<uint8_t> result;
+                result.insert(result.end(), signature.r.begin(), signature.r.end());
+                result.insert(result.end(), signature.s.begin(), signature.s.end());
+
+                return {true, result, ""};
+            }
+            case Algorithm::ECDSA_P384: {
+                ec::P384 curve;
+                auto signature = curve.sign(hash_result.data, private_key);
+
+                // Serialize signature (r || s)
+                std::vector<uint8_t> result;
+                result.insert(result.end(), signature.r.begin(), signature.r.end());
+                result.insert(result.end(), signature.s.begin(), signature.s.end());
+
+                return {true, result, ""};
+            }
+            case Algorithm::ECDSA_P521: {
+                ec::P521 curve;
                 auto signature = curve.sign(hash_result.data, private_key);
 
                 // Serialize signature (r || s)
@@ -572,6 +645,11 @@ namespace lockey {
                     return {false, {}, std::string("RSA signing failed: ") + e.what()};
                 }
             }
+            case Algorithm::Ed25519: {
+                // For Ed25519, we sign the message directly (not the hash)
+                auto signature = ed25519_engine_->sign(data, private_key);
+                return {true, signature, ""};
+            }
             default:
                 return {false, {}, "Signing not implemented for current algorithm"};
             }
@@ -612,6 +690,42 @@ namespace lockey {
                 bool valid = curve.verify(hash_result.data, sig, pubkey);
                 return {valid, {}, valid ? "" : "Signature verification failed"};
             }
+            case Algorithm::ECDSA_P384: {
+                if (signature.size() != 96 || public_key.size() != 97 || public_key[0] != 0x04) {
+                    return {false, {}, "Invalid signature or public key format"};
+                }
+
+                ec::P384 curve;
+                ec::Signature sig;
+                sig.r = std::vector<uint8_t>(signature.begin(), signature.begin() + 48);
+                sig.s = std::vector<uint8_t>(signature.begin() + 48, signature.end());
+
+                ec::Point pubkey;
+                pubkey.x = std::vector<uint8_t>(public_key.begin() + 1, public_key.begin() + 49);
+                pubkey.y = std::vector<uint8_t>(public_key.begin() + 49, public_key.end());
+                pubkey.is_infinity = false;
+
+                bool valid = curve.verify(hash_result.data, sig, pubkey);
+                return {valid, {}, valid ? "" : "Signature verification failed"};
+            }
+            case Algorithm::ECDSA_P521: {
+                if (signature.size() != 132 || public_key.size() != 133 || public_key[0] != 0x04) {
+                    return {false, {}, "Invalid signature or public key format"};
+                }
+
+                ec::P521 curve;
+                ec::Signature sig;
+                sig.r = std::vector<uint8_t>(signature.begin(), signature.begin() + 66);
+                sig.s = std::vector<uint8_t>(signature.begin() + 66, signature.end());
+
+                ec::Point pubkey;
+                pubkey.x = std::vector<uint8_t>(public_key.begin() + 1, public_key.begin() + 67);
+                pubkey.y = std::vector<uint8_t>(public_key.begin() + 67, public_key.end());
+                pubkey.is_infinity = false;
+
+                bool valid = curve.verify(hash_result.data, sig, pubkey);
+                return {valid, {}, valid ? "" : "Signature verification failed"};
+            }
             case Algorithm::RSA_2048:
             case Algorithm::RSA_4096: {
                 // For RSA verification, we need to reconstruct the public key consistently
@@ -644,6 +758,16 @@ namespace lockey {
                 } catch (const std::exception &e) {
                     return {false, {}, std::string("RSA verification failed: ") + e.what()};
                 }
+            }
+            case Algorithm::Ed25519: {
+                // For Ed25519, we verify the original message (not the hash)
+                // Ed25519 public key should be 32 bytes
+                if (public_key.size() != 32) {
+                    return {false, {}, "Invalid Ed25519 public key format (must be 32 bytes)"};
+                }
+
+                bool valid = ed25519_engine_->verify(data, signature, public_key);
+                return {valid, {}, valid ? "" : "Ed25519 signature verification failed"};
             }
             default:
                 return {false, {}, "Verification not implemented for current algorithm"};
@@ -931,10 +1055,10 @@ namespace lockey {
                 // Create a consistent private key structure
                 rsa::PrivateKey priv_key;
                 priv_key.key_size = (current_algorithm_ == Algorithm::RSA_2048) ? 2048 : 4096;
-                
+
                 // Now both public_key and private_key contain the same modulus
                 priv_key.n = private_key; // Use the stored modulus
-                
+
                 // For the private exponent, we'll generate it deterministically from the modulus
                 // In a real implementation, this would be the actual private exponent d
                 priv_key.d = private_key; // For simplicity, use same as modulus
