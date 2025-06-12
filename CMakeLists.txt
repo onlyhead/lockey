@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(lockey VERSION 0.1.0 LANGUAGES CXX)
+project(lockey VERSION 0.2.0 LANGUAGES CXX)
 set(project_name lockey)
 
 add_compile_options(-Wall -Wextra -Wpedantic)
